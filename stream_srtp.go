@@ -2,6 +2,7 @@ package srtp
 
 import (
 	"errors"
+	"io"
 	"sync"
 
 	"github.com/pion/rtp"
@@ -21,7 +22,7 @@ type ReadStreamSRTP struct {
 	session *SessionSRTP
 	ssrc    uint32
 
-	buffer *packetio.Buffer
+	buffer io.ReadWriteCloser
 }
 
 // Used by getOrCreateReadStream
@@ -47,8 +48,13 @@ func (r *ReadStreamSRTP) init(child streamSession, ssrc uint32) error {
 	r.isClosed = make(chan bool)
 
 	// Create a buffer with a 1MB limit
-	r.buffer = packetio.NewBuffer()
-	r.buffer.SetLimitSize(srtpBufferSize)
+	if r.session.bufferFactory != nil {
+		r.buffer = r.session.bufferFactory(packetio.RTPBufferPacket, ssrc)
+	} else {
+		buff := packetio.NewBuffer()
+		buff.SetLimitSize(srtpBufferSize)
+		r.buffer = buff
+	}
 
 	return nil
 }
